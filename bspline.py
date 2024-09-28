@@ -1,72 +1,49 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import BSpline
 
-def bspline_basis(i, k, t, knots):
-    """
-    计算B样条基函数的值
-    :param i: 节点索引
-    :param k: 基函数的阶数
-    :param t: 当前参数值
-    :param knots: 节点向量
-    :return: 基函数值
-    """
+# k->次数 u->knot取值 i->控制点索引
+
+
+def bspline_basis(i, k, u, knots):
     if k == 0:
-        # 0阶基函数
-        return 1.0 if knots[i] <= t < knots[i + 1] else 0.0
+        return 1 if knots[i] <= u and u < knots[i + 1] else 0
     else:
-        # 递归计算k阶基函数
-        coef1 = 0.0
-        coef2 = 0.0
-        
-        # 避免除以零的情况
-        if (knots[i + k] - knots[i]) != 0:
-            coef1 = (t - knots[i]) / (knots[i + k] - knots[i]) * bspline_basis(i, k - 1, t, knots)
-        if (knots[i + k + 1] - knots[i + 1]) != 0:
-            coef2 = (knots[i + k + 1] - t) / (knots[i + k + 1] - knots[i + 1]) * bspline_basis(i + 1, k - 1, t, knots)
-        
-        return coef1 + coef2
+        coefficient1 = 0.0
+        coefficient2 = 0.0
 
-def bspline_curve(control_points, degree, num_points=100):
-    """
-    生成B样条曲线
-    :param control_points: 控制点数组
-    :param degree: B样条的阶数
-    :param num_points: 曲线上的采样点数量
-    :return: B样条曲线点
-    """
-    n = len(control_points)
-    knots = np.concatenate(([0] * degree, np.linspace(0, 1, n - degree + 1), [1] * degree))  # 生成节点向量
-    curve_points = []
+        if knots[i + k] - knots[i] != 0:
+            coefficient1 = (
+                (u - knots[i]) / (knots[i + k] - knots[i])
+            ) * bspline_basis(i, k - 1, u, knots)
+        if knots[i + k + 1] - knots[i + 1] != 0:
+            coefficient2 = (
+                (knots[i + k + 1] - u) / (knots[i + k + 1] - knots[i + 1])
+            ) * bspline_basis(i + 1, k - 1, u, knots)
 
-    for t in np.linspace(0, 1, num_points):
-        point = np.zeros(2)  # 初始化曲线点
-        for i in range(n):
-            b = bspline_basis(i, degree, t, knots)  # 计算基函数值
-            point += b * control_points[i]  # 线性组合生成曲线点
-        curve_points.append(point)
+        return coefficient1 + coefficient2
 
-    return np.array(curve_points)
 
-# 控制点
-control_points = np.array([
-    [0, 0],
-    [1, 2],
-    [2, -1],
-    [4, 3],
-    [5, 0]
-])
+def bspline_curve(degree, control_points, points_num):
+    N = len(control_points)
+    K = degree
+    knots = np.concatenate(([0] * K, np.linspace(0, 1, N - K + 1), [1] * K))
+    point_curve = []
+    for u in np.linspace(0, 1, points_num):
+        point = np.zeros(2)
+        for i in range(len(control_points)):
+            point += control_points[i] * bspline_basis(i, K, u, knots)
+        point_curve.append(point)
+    return np.array(point_curve)
 
-# 生成B样条曲线
-degree = 3  # B样条的阶数
-curve_points = bspline_curve(control_points, degree)
 
-# 绘制B样条曲线和控制点
-plt.plot(curve_points[:, 0], curve_points[:, 1], label='B-Spline Curve', color='blue')
-plt.scatter(control_points[:, 0], control_points[:, 1], color='red', label='Control Points')
-plt.plot(control_points[:, 0], control_points[:, 1], '--', color='gray', label='Control Polygon')
-plt.title('B-Spline Curve')
-plt.xlabel('X')
-plt.ylabel('Y')
-plt.legend()
-plt.grid()
+control_points = np.array([(1, 2), (3, 6), (4, 2), (7, 10)])
+degree = 3
+
+curve = bspline_curve(degree, control_points, 100)
+
+fig, axes = plt.subplots(1, 1)
+axes.grid()
+axes.plot(curve[:-1, 0], curve[:-1, 1],'--',color='blue')
+axes.scatter(control_points[:, 0], control_points[:, 1], color='red', label='Control Points')
 plt.show()
